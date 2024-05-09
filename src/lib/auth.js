@@ -6,6 +6,7 @@ import db from "./db";
 
 const adapter = new BetterSqlite3Adapter(db, {
   user: "users",
+  session: "sessions",
 });
 
 const lucia = new Lucia(adapter, {
@@ -19,7 +20,8 @@ const lucia = new Lucia(adapter, {
 
 export async function createAuthSession(userId) {
   const session = await lucia.createSession(userId, {});
-  const sessionCookie = await lucia.createAuthCookie(session);
+  const sessionCookie = lucia.createSessionCookie(session.id);
+
   cookies().set(
     sessionCookie.name,
     sessionCookie.value,
@@ -28,13 +30,12 @@ export async function createAuthSession(userId) {
 }
 
 export async function verifyAuth() {
-  const sessionCookie = cookies().get(lucia.sessionCookieName);
   const nullResponse = { user: null, session: null };
 
+  const sessionCookie = cookies().get(lucia.sessionCookieName);
   if (!sessionCookie) return nullResponse;
 
   const sessionId = sessionCookie.value;
-
   if (!sessionId) return nullResponse;
 
   const result = await lucia.validateSession(sessionId);
@@ -42,6 +43,16 @@ export async function verifyAuth() {
   try {
     if (result.session && result.session.fresh) {
       const sessionCookie = lucia.createSessionCookie(result.session.id);
+
+      cookies().set(
+        sessionCookie.name,
+        sessionCookie.value,
+        sessionCookie.attributes
+      );
+    }
+
+    if (!result.session) {
+      const sessionCookie = lucia.createBlankSessionCookie();
 
       cookies().set(
         sessionCookie.name,
