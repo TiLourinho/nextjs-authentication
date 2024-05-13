@@ -54,3 +54,18 @@ export async function verifyAuth() {
 
   return result;
 }
+
+export async function destroySession() {
+  const { session } = await verifyAuth();
+
+  if (!session) {
+    return {
+      error: "Unauthorized",
+    };
+  }
+
+  await lucia.invalidateSession(session.id);
+
+  const sessionCookie = lucia.createBlankSessionCookie();
+  setCookies(sessionCookie);
+}
